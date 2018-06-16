@@ -13,9 +13,9 @@ Samples audios (in Korean) can be found [here](http://carpedm20.github.io/tacotr
 
 ## Prerequisites
 
-- Python 3.6+
+- Python 3.5+
 - FFmpeg
-- [Tensorflow 1.3](https://www.tensorflow.org/install/)
+- [Tensorflow 1.8](https://www.tensorflow.org/install/)
 
 
 ## Usage

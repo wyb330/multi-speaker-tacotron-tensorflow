@@ -2,20 +2,22 @@ import tensorflow as tf
 
 SCALE_FACTOR = 1
 
+
 def f(num):
     return num // SCALE_FACTOR
+
 
 basic_params = {
     # Comma-separated list of cleaners to run on text prior to training and eval. For non-English
     # text, you may want to use "basic_cleaners" or "transliteration_cleaners" See TRAINING_DATA.md.
-    'cleaners': 'english_cleaners', #originally korean_cleaners
+    'cleaners': 'english_cleaners',  # originally korean_cleaners
 }
 
 basic_params.update({
     # Audio
     'num_mels': 80,
     'num_freq': 1025,
-    'sample_rate': 24000, # trained as 20000 but need to be 24000 
+    'sample_rate': 24000,  # trained as 20000 but need to be 24000
     'frame_length_ms': 50,
     'frame_shift_ms': 12.5,
     'preemphasis': 0.97,
@@ -25,12 +27,12 @@ basic_params.update({
 
 if True:
     basic_params.update({
-        'sample_rate': 22050, #originally 24000 (krbook), 22050(lj-data), 20000(others) 
+        'sample_rate': 22050,  # originally 24000 (krbook), 22050(lj-data), 20000(others)
     })
 
 basic_params.update({
     # Model
-    'model_type': 'single', # [single, simple, deepvoice]
+    'model_type': 'single',  # [single, simple, deepvoice]
     'speaker_embedding_size': f(16),
 
     'embedding_size': f(256),
@@ -47,7 +49,7 @@ basic_params.update({
     'enc_proj_width': 3,
 
     # Attention
-    'attention_type': 'bah_mon', # ntm2-5
+    'attention_type': 'bah_mon',  # ntm2-5
     'attention_size': f(256),
     'attention_state_size': f(256),
 
@@ -62,13 +64,13 @@ basic_params.update({
     'post_maxpool_width': 2,
     'post_highway_depth': 4,
     'post_rnn_size': f(128),
-    'post_proj_sizes': [f(256), 80], # num_mels=80
+    'post_proj_sizes': [f(256), 80],  # num_mels=80
     'post_proj_width': 3,
 
     'reduction_factor': 4,
 })
 
-if False: # Deep Voice 2 AudioBook Dataset
+if False:  # Deep Voice 2 AudioBook Dataset
     basic_params.update({
         'dropout_prob': 0.8,
 
@@ -78,32 +80,32 @@ if False: # Deep Voice 2 AudioBook Dataset
         'post_bank_channel_size': f(512),
         'post_rnn_size': f(256),
 
-        'reduction_factor': 5, # changed from 4
+        'reduction_factor': 5,  # changed from 4
     })
-elif False: # Deep Voice 2 VCTK dataset
+elif False:  # Deep Voice 2 VCTK dataset
     basic_params.update({
         'dropout_prob': 0.8,
 
-        #'attention_size': f(512),
+        # 'attention_size': f(512),
 
-        #'dec_prenet_sizes': [f(256), f(128)],
-        #'post_bank_channel_size': f(512),
+        # 'dec_prenet_sizes': [f(256), f(128)],
+        # 'post_bank_channel_size': f(512),
         'post_rnn_size': f(256),
 
         'reduction_factor': 5,
     })
-elif True: # Single Speaker
+elif True:  # Single Speaker
     basic_params.update({
         'dropout_prob': 0.5,
 
         'attention_size': f(128),
 
         'post_bank_channel_size': f(128),
-        #'post_rnn_size': f(128),
+        # 'post_rnn_size': f(128),
 
-        'reduction_factor': 5, #chhanged from 4
+        'reduction_factor': 5,  # chhanged from 4
     })
-elif False: # Single Speaker with generalization
+elif False:  # Single Speaker with generalization
     basic_params.update({
         'dropout_prob': 0.8,
 
@@ -116,7 +118,6 @@ elif False: # Single Speaker with generalization
         'reduction_factor': 4,
     })
 
-
 basic_params.update({
     # Training
     'batch_size': 32,
@@ -125,7 +126,7 @@ basic_params.update({
     'use_fixed_test_inputs': False,
 
     'initial_learning_rate': 0.001,
-    'decay_learning_rate_mode': 0, # True in deepvoice2 paper
+    'decay_learning_rate_mode': 0,  # True in deepvoice2 paper
     'initial_data_greedy': True,
     'initial_phase_step': 8000,
     'main_data_greedy_factor': 0,
@@ -133,18 +134,17 @@ basic_params.update({
     'prioritize_loss': False,
 
     'recognition_loss_coeff': 0.2,
-    'ignore_recognition_level': 0, # 0: use all, 1: ignore only unmatched_alignment, 2: fully ignore recognition
+    'ignore_recognition_level': 0,  # 0: use all, 1: ignore only unmatched_alignment, 2: fully ignore recognition
 
     # Eval
-    'min_tokens': 50,#originally 50, 30 is good for korean,
+    'min_tokens': 50,  # originally 50, 30 is good for korean,
     'min_iters': 30,
     'max_iters': 200,
     'skip_inadequate': False,
 
     'griffin_lim_iters': 60,
-    'power': 1.5, # Power to raise magnitudes to prior to Griffin-Lim
+    'power': 1.5,  # Power to raise magnitudes to prior to Griffin-Lim
 })
-
 
 # Default hyperparameters:
 hparams = tf.contrib.training.HParams(**basic_params)

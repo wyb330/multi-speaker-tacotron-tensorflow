@@ -3,13 +3,12 @@ from tensorflow.contrib.rnn import RNNCell
 from tensorflow.python.ops import rnn_cell_impl
 from tensorflow.python.util import nest
 from tensorflow.contrib.seq2seq.python.ops.attention_wrapper \
-                import _bahdanau_score, _BaseAttentionMechanism, BahdanauAttention, \
-                             AttentionWrapperState, AttentionMechanism
+    import _bahdanau_score, _BaseAttentionMechanism, BahdanauAttention, \
+    AttentionWrapperState, AttentionMechanism
 
 from .modules import prenet
 
 _zero_state_tensors = rnn_cell_impl._zero_state_tensors
-
 
 
 class AttentionWrapper(RNNCell):
@@ -74,47 +73,47 @@ class AttentionWrapper(RNNCell):
             for attention_mechanism in attention_mechanisms:
                 if not isinstance(attention_mechanism, AttentionMechanism):
                     raise TypeError(
-                            "attention_mechanism must contain only instances of "
-                            "AttentionMechanism, saw type: %s"
-                            % type(attention_mechanism).__name__)
+                        "attention_mechanism must contain only instances of "
+                        "AttentionMechanism, saw type: %s"
+                        % type(attention_mechanism).__name__)
         else:
             self._is_multi = False
             if not isinstance(attention_mechanism, AttentionMechanism):
                 raise TypeError(
-                        "attention_mechanism must be an AttentionMechanism or list of "
-                        "multiple AttentionMechanism instances, saw type: %s"
-                        % type(attention_mechanism).__name__)
+                    "attention_mechanism must be an AttentionMechanism or list of "
+                    "multiple AttentionMechanism instances, saw type: %s"
+                    % type(attention_mechanism).__name__)
             attention_mechanisms = (attention_mechanism,)
 
         if cell_input_fn is None:
             cell_input_fn = (
-                    lambda inputs, attention: tf.concat([inputs, attention], -1))
+                lambda inputs, attention: tf.concat([inputs, attention], -1))
         else:
             if not callable(cell_input_fn):
                 raise TypeError(
-                        "cell_input_fn must be callable, saw type: %s"
-                        % type(cell_input_fn).__name__)
+                    "cell_input_fn must be callable, saw type: %s"
+                    % type(cell_input_fn).__name__)
 
         if attention_layer_size is not None:
             attention_layer_sizes = tuple(
-                    attention_layer_size
-                    if isinstance(attention_layer_size, (list, tuple))
-                    else (attention_layer_size,))
+                attention_layer_size
+                if isinstance(attention_layer_size, (list, tuple))
+                else (attention_layer_size,))
             if len(attention_layer_sizes) != len(attention_mechanisms):
                 raise ValueError(
-                        "If provided, attention_layer_size must contain exactly one "
-                        "integer per attention_mechanism, saw: %d vs %d"
-                        % (len(attention_layer_sizes), len(attention_mechanisms)))
+                    "If provided, attention_layer_size must contain exactly one "
+                    "integer per attention_mechanism, saw: %d vs %d"
+                    % (len(attention_layer_sizes), len(attention_mechanisms)))
             self._attention_layers = tuple(
-                    tf.layers.Dense(
-                            attention_layer_size, name="attention_layer", use_bias=False)
-                    for attention_layer_size in attention_layer_sizes)
+                tf.layers.Dense(
+                    attention_layer_size, name="attention_layer", use_bias=False)
+                for attention_layer_size in attention_layer_sizes)
             self._attention_layer_size = sum(attention_layer_sizes)
         else:
             self._attention_layers = None
             self._attention_layer_size = sum(
-                    attention_mechanism.values.get_shape()[-1].value
-                    for attention_mechanism in attention_mechanisms)
+                attention_mechanism.values.get_shape()[-1].value
+                for attention_mechanism in attention_mechanisms)
 
         self._cell = cell
         self._attention_mechanisms = attention_mechanisms
@@ -139,14 +138,14 @@ class AttentionWrapper(RNNCell):
                 with tf.control_dependencies(
                         self._batch_size_checks(state_batch_size, error_message)):
                     self._initial_cell_state = nest.map_structure(
-                            lambda s: tf.identity(s, name="check_initial_cell_state"),
-                            initial_cell_state)
+                        lambda s: tf.identity(s, name="check_initial_cell_state"),
+                        initial_cell_state)
 
     def _batch_size_checks(self, batch_size, error_message):
         return [tf.assert_equal(batch_size,
-                attention_mechanism.batch_size,
-                message=error_message)
-                        for attention_mechanism in self._attention_mechanisms]
+                                attention_mechanism.batch_size,
+                                message=error_message)
+                for attention_mechanism in self._attention_mechanisms]
 
     def _item_or_tuple(self, seq):
         """Returns `seq` as tuple or the singular element.
@@ -174,15 +173,15 @@ class AttentionWrapper(RNNCell):
     @property
     def state_size(self):
         return AttentionWrapperState(
-                cell_state=self._cell.state_size,
-                time=tf.TensorShape([]),
-                attention=self._attention_layer_size,
-                attention_state=self._item_or_tuple(
-                    a.state_size for a in self._attention_mechanisms),
-                alignments=self._item_or_tuple(
-                        a.alignments_size for a in self._attention_mechanisms),
-                alignment_history=self._item_or_tuple(
-                        () for _ in self._attention_mechanisms))    # sometimes a TensorArray
+            cell_state=self._cell.state_size,
+            time=tf.TensorShape([]),
+            attention=self._attention_layer_size,
+            attention_state=self._item_or_tuple(
+                a.state_size for a in self._attention_mechanisms),
+            alignments=self._item_or_tuple(
+                a.alignments_size for a in self._attention_mechanisms),
+            alignment_history=self._item_or_tuple(
+                () for _ in self._attention_mechanisms))  # sometimes a TensorArray
 
     def zero_state(self, batch_size, dtype):
         with tf.name_scope(type(self).__name__ + "ZeroState", values=[batch_size]):
@@ -201,22 +200,22 @@ class AttentionWrapper(RNNCell):
             with tf.control_dependencies(
                     self._batch_size_checks(batch_size, error_message)):
                 cell_state = nest.map_structure(
-                        lambda s: tf.identity(s, name="checked_cell_state"),
-                        cell_state)
+                    lambda s: tf.identity(s, name="checked_cell_state"),
+                    cell_state)
 
             return AttentionWrapperState(
-                    cell_state=cell_state,
-                    time=tf.zeros([], dtype=tf.int32),
-                    attention=_zero_state_tensors(self._attention_layer_size, batch_size, dtype),
-                    attention_state=self._item_or_tuple(
-                        a.state_size for a in self._attention_mechanisms),
-                    alignments=self._item_or_tuple(
-                            attention_mechanism.initial_alignments(batch_size, dtype)
-                            for attention_mechanism in self._attention_mechanisms),
-                    alignment_history=self._item_or_tuple(
-                            tf.TensorArray(dtype=dtype, size=0, dynamic_size=True)
-                            if self._alignment_history else ()
-                            for _ in self._attention_mechanisms))
+                cell_state=cell_state,
+                time=tf.zeros([], dtype=tf.int32),
+                attention=_zero_state_tensors(self._attention_layer_size, batch_size, dtype),
+                attention_state=self._item_or_tuple(
+                    a.state_size for a in self._attention_mechanisms),
+                alignments=self._item_or_tuple(
+                    attention_mechanism.initial_alignments(batch_size, dtype)
+                    for attention_mechanism in self._attention_mechanisms),
+                alignment_history=self._item_or_tuple(
+                    tf.TensorArray(dtype=dtype, size=0, dynamic_size=True)
+                    if self._alignment_history else ()
+                    for _ in self._attention_mechanisms))
 
     def call(self, inputs, state):
         """Perform a step of attention-wrapped RNN.
@@ -245,7 +244,7 @@ class AttentionWrapper(RNNCell):
         """
         if not isinstance(state, AttentionWrapperState):
             raise TypeError("Expected state to be instance of AttentionWrapperState. "
-                                            "Received type %s instead."    % type(state))
+                            "Received type %s instead." % type(state))
 
         # Step 1: Calculate the true inputs to the cell based on the
         # previous attention value.
@@ -265,7 +264,7 @@ class AttentionWrapper(RNNCell):
         with tf.control_dependencies(
                 self._batch_size_checks(cell_batch_size, error_message)):
             cell_output = tf.identity(
-                    cell_output, name="checked_cell_output")
+                cell_output, name="checked_cell_output")
 
         if self._is_multi:
             previous_alignments = state.alignments
@@ -280,12 +279,12 @@ class AttentionWrapper(RNNCell):
 
         for i, attention_mechanism in enumerate(self._attention_mechanisms):
             attention, alignments = _compute_attention(
-                    attention_mechanism, cell_output, previous_alignments[i],
-                    self._attention_layers[i] if self._attention_layers else None,
-                    self.is_manual_attention, self.manual_alignments, state.time)
+                attention_mechanism, cell_output, previous_alignments[i],
+                self._attention_layers[i] if self._attention_layers else None,
+                self.is_manual_attention, self.manual_alignments, state.time)
 
             alignment_history = previous_alignment_history[i].write(
-                    state.time, alignments) if self._alignment_history else ()
+                state.time, alignments) if self._alignment_history else ()
 
             all_alignments.append(alignments)
             all_histories.append(alignment_history)
@@ -293,33 +292,34 @@ class AttentionWrapper(RNNCell):
 
         attention = tf.concat(all_attentions, 1)
         next_state = AttentionWrapperState(
-                time=state.time + 1,
-                cell_state=next_cell_state,
-                attention=attention,
-                alignments=self._item_or_tuple(all_alignments),
-                alignment_history=self._item_or_tuple(all_histories))
+            time=state.time + 1,
+            cell_state=next_cell_state,
+            attention=attention,
+            attention_state=self._item_or_tuple(
+                a.state_size for a in self._attention_mechanisms),
+            alignments=self._item_or_tuple(all_alignments),
+            alignment_history=self._item_or_tuple(all_histories))
 
         if self._output_attention:
             return attention, next_state
         else:
             return cell_output, next_state
 
+
 def _compute_attention(
         attention_mechanism, cell_output, previous_alignments,
         attention_layer, is_manual_attention, manual_alignments, time):
-
-    computed_alignments = attention_mechanism(
-            cell_output, previous_alignments=previous_alignments)
+    computed_alignments, next_attention_state = attention_mechanism(cell_output, state=previous_alignments)
     batch_size, max_time = \
-            tf.shape(computed_alignments)[0], tf.shape(computed_alignments)[1]
+        tf.shape(computed_alignments)[0], tf.shape(computed_alignments)[1]
 
     alignments = tf.cond(
-            is_manual_attention,
-            lambda: manual_alignments[:, time, :],
-            lambda: computed_alignments,
+        is_manual_attention,
+        lambda: manual_alignments[:, time, :],
+        lambda: computed_alignments,
     )
 
-    #alignments = tf.one_hot(tf.zeros((batch_size,), dtype=tf.int32), max_time, dtype=tf.float32)
+    # alignments = tf.one_hot(tf.zeros((batch_size,), dtype=tf.int32), max_time, dtype=tf.float32)
 
     # Reshape from [batch_size, memory_time] to [batch_size, 1, memory_time]
     expanded_alignments = tf.expand_dims(alignments, 1)
@@ -346,6 +346,7 @@ def _compute_attention(
 
 class DecoderPrenetWrapper(RNNCell):
     '''Runs RNN inputs through a prenet before sending them to the cell.'''
+
     def __init__(
             self, cell, embed_to_concat,
             is_training, prenet_sizes, dropout_prob):
@@ -369,20 +370,19 @@ class DecoderPrenetWrapper(RNNCell):
 
     def call(self, inputs, state):
         prenet_out = prenet(
-                inputs, self._is_training,
-                self.prenet_sizes, self.dropout_prob, scope='decoder_prenet')
+            inputs, self._is_training,
+            self.prenet_sizes, self.dropout_prob, scope='decoder_prenet')
 
         if self._embed_to_concat is not None:
             concat_out = tf.concat(
-                    [prenet_out, self._embed_to_concat],
-                    axis=-1, name='speaker_concat')
+                [prenet_out, self._embed_to_concat],
+                axis=-1, name='speaker_concat')
             return self._cell(concat_out, state)
         else:
             return self._cell(prenet_out, state)
 
     def zero_state(self, batch_size, dtype):
         return self._cell.zero_state(batch_size, dtype)
-
 
 
 class ConcatOutputAndAttentionWrapper(RNNCell):
@@ -392,6 +392,7 @@ class ConcatOutputAndAttentionWrapper(RNNCell):
     attention_layer_size=None and output_attention=False. Such a cell's state will include an
     "attention" field that is the context vector.
     '''
+
     def __init__(self, cell, embed_to_concat):
         super(ConcatOutputAndAttentionWrapper, self).__init__()
         self._cell = cell
@@ -410,8 +411,8 @@ class ConcatOutputAndAttentionWrapper(RNNCell):
 
         if self._embed_to_concat is not None:
             tensors = [
-                    output, res_state.attention,
-                    self._embed_to_concat,
+                output, res_state.attention,
+                self._embed_to_concat,
             ]
             return tf.concat(tensors, axis=-1), res_state
         else:

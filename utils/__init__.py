@@ -13,6 +13,7 @@ from shutil import copyfile as copy_file
 
 PARAMS_NAME = "params.json"
 
+
 class ValueWindow():
     def __init__(self, window_size=100):
         self._window_size = window_size
@@ -36,10 +37,11 @@ class ValueWindow():
     def reset(self):
         self._values = []
 
+
 def prepare_dirs(config, hparams):
     if hasattr(config, "data_paths"):
         config.datasets = [
-                os.path.basename(data_path) for data_path in config.data_paths]
+            os.path.basename(data_path) for data_path in config.data_paths]
         dataset_desc = "+".join(config.datasets)
 
     if config.load_path:
@@ -60,15 +62,18 @@ def prepare_dirs(config, hparams):
         save_hparams(config.model_dir, hparams)
         copy_file("hparams.py", os.path.join(config.model_dir, "hparams.py"))
 
+
 def makedirs(path):
     if not os.path.exists(path):
         print(" [*] Make directories : {}".format(path))
         os.makedirs(path)
 
+
 def remove_file(path):
     if os.path.exists(path):
         print(" [*] Removed: {}".format(path))
         os.remove(path)
+
 
 def backup_file(path):
     root, ext = os.path.splitext(path)
@@ -77,36 +82,41 @@ def backup_file(path):
     os.rename(path, new_path)
     print(" [*] {} has backup: {}".format(path, new_path))
 
+
 def get_time():
     return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
+
 def write_json(path, data):
-    with open(path, 'w',encoding='utf-8') as f:
+    with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4, sort_keys=True, ensure_ascii=False)
 
+
 def load_json(path, as_class=False, encoding='euc-kr'):
-    with open(path,encoding=encoding) as f:
+    with open(path, encoding=encoding) as f:
         content = f.read()
         content = re.sub(",\s*}", "}", content)
         content = re.sub(",\s*]", "]", content)
 
         if as_class:
-            data = json.loads(content, object_hook=\
-                    lambda data: namedtuple('Data', data.keys())(*data.values()))
+            data = json.loads(content, object_hook= \
+                lambda data: namedtuple('Data', data.keys())(*data.values()))
         else:
             data = json.loads(content)
-    #print(data)
+    # print(data)
     return data
+
 
 def save_hparams(model_dir, hparams):
     param_path = os.path.join(model_dir, PARAMS_NAME)
 
     info = eval(hparams.to_json(). \
-            replace('true', 'True').replace('false', 'False'))
+                replace('true', 'True').replace('false', 'False'))
     write_json(param_path, info)
 
     print(" [*] MODEL dir: {}".format(model_dir))
     print(" [*] PARAM path: {}".format(param_path))
+
 
 def load_hparams(hparams, load_path, skip_list=[]):
     path = os.path.join(load_path, PARAMS_NAME)
@@ -126,17 +136,21 @@ def load_hparams(hparams, load_path, skip_list=[]):
                 print("UPDATE {}: {} -> {}".format(key, getattr(hparams, key), value))
                 setattr(hparams, key, value)
 
+
 def add_prefix(path, prefix):
     dir_path, filename = os.path.dirname(path), os.path.basename(path)
     return "{}/{}.{}".format(dir_path, prefix, filename)
+
 
 def add_postfix(path, postfix):
     path_without_ext, ext = path.rsplit('.', 1)
     return "{}.{}.{}".format(path_without_ext, postfix, ext)
 
+
 def remove_postfix(path):
     items = path.rsplit('.', 2)
     return items[0] + "." + items[2]
+
 
 def parallel_run(fn, items, desc="", parallel=True):
     results = []
@@ -155,6 +169,7 @@ def parallel_run(fn, items, desc="", parallel=True):
 
     return results
 
+
 def which(program):
     if os.name == "nt" and not program.endswith(".exe"):
         program += ".exe"
@@ -166,6 +181,7 @@ def which(program):
         if os.path.isfile(program_path) and os.access(program_path, os.X_OK):
             return program_path
 
+
 def get_encoder_name():
     if which("avconv"):
         return "avconv"
@@ -174,30 +190,36 @@ def get_encoder_name():
     else:
         return "ffmpeg"
 
-def download_with_url(url, dest_path, chunk_size=32*1024):
+
+def download_with_url(url, dest_path, chunk_size=32 * 1024):
     with open(dest_path, "wb") as f:
         response = requests.get(url, stream=True)
         total_size = int(response.headers.get('content-length', 0))
 
         for chunk in response.iter_content(chunk_size):
-            if chunk: # filter out keep-alive new chunks
+            if chunk:  # filter out keep-alive new chunks
                 f.write(chunk)
     return True
+
 
 def str2bool(v):
     return v.lower() in ('true', '1')
 
+
 def get_git_revision_hash():
     return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode("utf-8")
+
 
 def get_git_diff():
     return subprocess.check_output(['git', 'diff']).decode("utf-8")
 
+
 def warning(msg):
-    print("="*40)
+    print("=" * 40)
     print(" [!] {}".format(msg))
-    print("="*40)
+    print("=" * 40)
     print()
+
 
 def query_yes_no(question, default=None):
     # Code from https://stackoverflow.com/a/3041990
