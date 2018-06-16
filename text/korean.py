@@ -1,12 +1,9 @@
 ﻿# Code based on 
 
 import re
-import os
 import ast
-import json
-from jamo import hangul_to_jamo, h2j, j2h
-
-from .ko_dictionary import english_dictionary, etc_dictionary
+from jamo import hangul_to_jamo, h2j, j2h, jamo_to_hcj, InvalidJamoError
+from text.ko_dictionary import english_dictionary, etc_dictionary
 
 PAD = '_'
 EOS = '~'
@@ -25,14 +22,18 @@ id_to_char = {i: c for i, c in enumerate(ALL_SYMBOLS)}
 
 quote_checker = """([`"'＂“‘])(.+?)([`"'＂”’])"""
 
+
 def is_lead(char):
     return char in JAMO_LEADS
+
 
 def is_vowel(char):
     return char in JAMO_VOWELS
 
+
 def is_tail(char):
     return char in JAMO_TAILS
+
 
 def get_mode(char):
     if is_lead(char):
@@ -44,13 +45,15 @@ def get_mode(char):
     else:
         return -1
 
+
 def _get_text_from_candidates(candidates):
     if len(candidates) == 0:
         return ""
     elif len(candidates) == 1:
-        return _jamo_char_to_hcj(candidates[0])
+        return jamo_to_hcj(candidates[0])
     else:
         return j2h(**dict(zip(["lead", "vowel", "tail"], candidates)))
+
 
 def jamo_to_korean(text):
     text = h2j(text)
@@ -59,82 +62,89 @@ def jamo_to_korean(text):
     new_text = ""
     candidates = []
 
-    while True:
-        if idx >= len(text):
-            new_text += _get_text_from_candidates(candidates)
-            break
+    try:
+        while True:
+            if idx >= len(text):
+                new_text += _get_text_from_candidates(candidates)
+                break
 
-        char = text[idx]
-        mode = get_mode(char)
+            char = text[idx]
+            mode = get_mode(char)
 
-        if mode == 0:
-            new_text += _get_text_from_candidates(candidates)
-            candidates = [char]
-        elif mode == -1:
-            new_text += _get_text_from_candidates(candidates)
-            new_text += char
-            candidates = []
-        else:
-            candidates.append(char)
+            if mode == 0:
+                new_text += _get_text_from_candidates(candidates)
+                candidates = [char]
+            elif mode == -1:
+                new_text += _get_text_from_candidates(candidates)
+                new_text += char
+                candidates = []
+            else:
+                candidates.append(char)
 
-        idx += 1
+            idx += 1
+    except InvalidJamoError:
+        new_text = text
+
     return new_text
 
+
 num_to_kor = {
-        '0': '영',
-        '1': '일',
-        '2': '이',
-        '3': '삼',
-        '4': '사',
-        '5': '오',
-        '6': '육',
-        '7': '칠',
-        '8': '팔',
-        '9': '구',
+    '0': '영',
+    '1': '일',
+    '2': '이',
+    '3': '삼',
+    '4': '사',
+    '5': '오',
+    '6': '육',
+    '7': '칠',
+    '8': '팔',
+    '9': '구',
 }
 
 unit_to_kor1 = {
-        '%': '퍼센트',
-        'cm': '센치미터',
-        'mm': '밀리미터',
-        'km': '킬로미터',
-        'kg': '킬로그람',
+    '%': '퍼센트',
+    'cm': '센치미터',
+    'mm': '밀리미터',
+    'km': '킬로미터',
+    'kg': '킬로그람',
 }
 unit_to_kor2 = {
-        'm': '미터',
+    'm': '미터',
 }
 
 upper_to_kor = {
-        'A': '에이',
-        'B': '비',
-        'C': '씨',
-        'D': '디',
-        'E': '이',
-        'F': '에프',
-        'G': '지',
-        'H': '에이치',
-        'I': '아이',
-        'J': '제이',
-        'K': '케이',
-        'L': '엘',
-        'M': '엠',
-        'N': '엔',
-        'O': '오',
-        'P': '피',
-        'Q': '큐',
-        'R': '알',
-        'S': '에스',
-        'T': '티',
-        'U': '유',
-        'V': '브이',
-        'W': '더블유',
-        'X': '엑스',
-        'Y': '와이',
-        'Z': '지',
+    'A': '에이',
+    'B': '비',
+    'C': '씨',
+    'D': '디',
+    'E': '이',
+    'F': '에프',
+    'G': '지',
+    'H': '에이치',
+    'I': '아이',
+    'J': '제이',
+    'K': '케이',
+    'L': '엘',
+    'M': '엠',
+    'N': '엔',
+    'O': '오',
+    'P': '피',
+    'Q': '큐',
+    'R': '알',
+    'S': '에스',
+    'T': '티',
+    'U': '유',
+    'V': '브이',
+    'W': '더블유',
+    'X': '엑스',
+    'Y': '와이',
+    'Z': '지',
 }
 
+
 def compare_sentence_with_jamo(text1, text2):
-    return h2j(text1) != h2j(text)
+    return h2j(text1) != h2j(text2)
+
 
 def tokenize(text, as_id=False):
     text = normalize(text)
@@ -145,8 +155,10 @@ def tokenize(text, as_id=False):
     else:
         return [token for token in tokens] + [EOS]
 
+
 def tokenizer_fn(iterator):
     return (token for x in iterator for token in tokenize(x, as_id=False))
+
 
 def normalize(text):
     text = text.strip()
@@ -163,12 +175,14 @@ def normalize(text):
 
     return text
 
+
 def normalize_with_dictionary(text, dic):
     if any(key in text for key in dic.keys()):
         pattern = re.compile('|'.join(re.escape(key) for key in dic.keys()))
         return pattern.sub(lambda x: dic[x.group()], text)
     else:
         return text
+
 
 def normalize_english(text):
     def fn(m):
@@ -181,6 +195,7 @@ def normalize_english(text):
     text = re.sub("([A-Za-z]+)", fn, text)
     return text
 
+
 def normalize_upper(text):
     text = text.group(0)
 
@@ -189,9 +204,10 @@ def normalize_upper(text):
     else:
         return text
 
+
 def normalize_quote(text):
     def fn(found_text):
-        from nltk import sent_tokenize # NLTK doesn't along with multiprocessing
+        from nltk import sent_tokenize  # NLTK doesn't along with multiprocessing
 
         found_text = found_text.group()
         unquoted_text = found_text[1:-1]
@@ -201,37 +217,39 @@ def normalize_quote(text):
 
     return re.sub(quote_checker, fn, text)
 
+
 number_checker = "([+-]?\d[\d,]*)[\.]?\d*"
 count_checker = "(시|명|가지|살|마리|포기|송이|수|톨|통|점|개|벌|척|채|다발|그루|자루|줄|켤레|그릇|잔|마디|상자|사람|곡|병|판)"
+
 
 def normalize_number(text):
     text = normalize_with_dictionary(text, unit_to_kor1)
     text = normalize_with_dictionary(text, unit_to_kor2)
     text = re.sub(number_checker + count_checker,
-            lambda x: number_to_korean(x, True), text)
+                  lambda x: number_to_korean(x, True), text)
     text = re.sub(number_checker,
-            lambda x: number_to_korean(x, False), text)
+                  lambda x: number_to_korean(x, False), text)
     return text
+
 
 num_to_kor1 = [""] + list("일이삼사오육칠팔구")
 num_to_kor2 = [""] + list("만억조경해")
 num_to_kor3 = [""] + list("십백천")
 
-#count_to_kor1 = [""] + ["하나","둘","셋","넷","다섯","여섯","일곱","여덟","아홉"]
-count_to_kor1 = [""] + ["한","두","세","네","다섯","여섯","일곱","여덟","아홉"]
+# count_to_kor1 = [""] + ["하나","둘","셋","넷","다섯","여섯","일곱","여덟","아홉"]
+count_to_kor1 = [""] + ["한", "두", "세", "네", "다섯", "여섯", "일곱", "여덟", "아홉"]
 
 count_tenth_dict = {
-        "십": "열",
-        "두십": "스물",
-        "세십": "서른",
-        "네십": "마흔",
-        "다섯십": "쉰",
-        "여섯십": "예순",
-        "일곱십": "일흔",
-        "여덟십": "여든",
-        "아홉십": "아흔",
+    "십": "열",
+    "두십": "스물",
+    "세십": "서른",
+    "네십": "마흔",
+    "다섯십": "쉰",
+    "여섯십": "예순",
+    "일곱십": "일흔",
+    "여덟십": "여든",
+    "아홉십": "아흔",
 }
-
 
 
 def number_to_korean(num_str, is_count=False):
@@ -239,7 +257,7 @@ def number_to_korean(num_str, is_count=False):
         num_str, unit_str = num_str.group(1), num_str.group(2)
     else:
         num_str, unit_str = num_str.group(), ""
-    
+
     num_str = num_str.replace(',', '')
     num = ast.literal_eval(num_str)
 
@@ -288,8 +306,8 @@ def number_to_korean(num_str, is_count=False):
 
         if any(word in kor for word in count_tenth_dict):
             kor = re.sub(
-                    '|'.join(count_tenth_dict.keys()),
-                    lambda x: count_tenth_dict[x.group()], kor)
+                '|'.join(count_tenth_dict.keys()),
+                lambda x: count_tenth_dict[x.group()], kor)
 
     if not is_count and kor.startswith("일") and len(kor) > 1:
         kor = kor[1:]
@@ -305,11 +323,18 @@ def number_to_korean(num_str, is_count=False):
 
     return kor + unit_str
 
+
 if __name__ == "__main__":
     def test_normalize(text):
         print(text)
         print(normalize(text))
-        print("="*30)
+        print("=" * 30)
+
+    def test_jamo(text):
+        print(text)
+        print(jamo_to_korean(text))
+        print("=" * 30)
+
 
     test_normalize("JTBC는 JTBCs를 DY는 A가 Absolute")
     test_normalize("오늘(13일) 101마리 강아지가")
@@ -317,3 +342,6 @@ if __name__ == "__main__":
     test_normalize('비대위원장이 지난 1월 이런 말을 했습니다. “난 그냥 산돼지처럼 돌파하는 스타일이다”')
     test_normalize("지금은 -12.35%였고 종류는 5가지와 19가지, 그리고 55가지였다")
     test_normalize("JTBC는 TH와 K 양이 2017년 9월 12일 오후 12시에 24살이 된다")
+
+    test_jamo("ㅈㄱㅡㅁㅇㅡㄴ")
+    test_jamo("ᆬᅰᆱᆾᅯᆮᅵᅫᆫᅬᅫᆾᅭᅰᅭᆭᅬᅬᅵᆾᅵ")
