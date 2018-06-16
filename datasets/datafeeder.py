@@ -15,8 +15,8 @@ from utils import parallel_run, remove_file
 from audio import frames_to_hours
 from audio.get_duration import get_durations
 
-
 _pad = 0
+
 
 def get_frame(path):
     data = np.load(path)
@@ -24,14 +24,15 @@ def get_frame(path):
     n_token = len(data["tokens"])
     return (path, n_frame, n_token)
 
+
 def get_path_dict(
         data_dirs, hparams, config,
         data_type, n_test=None,
         rng=np.random.RandomState(123)):
-
     # Load metadata:
     path_dict = {}
     for data_dir in data_dirs:
+        print(data_dir)
         paths = glob("{}/*.npz".format(data_dir))
 
         if data_type == 'train':
@@ -39,18 +40,18 @@ def get_path_dict(
 
         if not config.skip_path_filter:
             items = parallel_run(
-                    get_frame, paths, desc="filter_by_min_max_frame_batch", parallel=True)
+                get_frame, paths, desc="filter_by_min_max_frame_batch", parallel=False)
 
             min_n_frame = hparams.reduction_factor * hparams.min_iters
             max_n_frame = hparams.reduction_factor * hparams.max_iters - hparams.reduction_factor
-            
+
             new_items = [(path, n) for path, n, n_tokens in items \
-                    if min_n_frame <= n <= max_n_frame and n_tokens >= hparams.min_tokens]
+                         if min_n_frame <= n <= max_n_frame and n_tokens >= hparams.min_tokens]
 
             if any(check in data_dir for check in ["son", "yuinna"]):
                 blacklists = [".0000.", ".0001.", "NB11479580.0001"]
                 new_items = [item for item in new_items \
-                        if any(check not in item[0] for check in blacklists)]
+                             if any(check not in item[0] for check in blacklists)]
 
             new_paths = [path for path, n in new_items]
             new_n_frames = [n for path, n in new_items]
@@ -58,7 +59,7 @@ def get_path_dict(
             hours = frames_to_hours(new_n_frames)
 
             log(' [{}] Loaded metadata for {} examples ({:.2f} hours)'. \
-                    format(data_dir, len(new_n_frames), hours))
+                format(data_dir, len(new_n_frames), hours))
             log(' [{}] Max length: {}'.format(data_dir, max(new_n_frames)))
             log(' [{}] Min length: {}'.format(data_dir, min(new_n_frames)))
         else:
@@ -75,11 +76,12 @@ def get_path_dict(
 
     return path_dict
 
+
 class DataFeeder(threading.Thread):
     '''Feeds batches of data into a queue on a background thread.'''
 
     def __init__(self, coordinator, data_dirs,
-            hparams, config, batches_per_group, data_type, batch_size):
+                 hparams, config, batches_per_group, data_type, batch_size):
         super(DataFeeder, self).__init__()
 
         self._coord = coordinator
@@ -100,20 +102,20 @@ class DataFeeder(threading.Thread):
 
         # Load metadata:
         self.path_dict = get_path_dict(
-                data_dirs, self._hp, config, self.data_type,
-                n_test=self.batch_size, rng=self.rng)
+            data_dirs, self._hp, config, self.data_type,
+            n_test=self.batch_size, rng=self.rng)
 
         self.data_dirs = list(self.path_dict.keys())
         self.data_dir_to_id = {
-                data_dir: idx for idx, data_dir in enumerate(self.data_dirs)}
+            data_dir: idx for idx, data_dir in enumerate(self.data_dirs)}
 
         data_weight = {
-                data_dir: 1. for data_dir in self.data_dirs
+            data_dir: 1. for data_dir in self.data_dirs
         }
 
         if self._hp.main_data_greedy_factor > 0 and \
                 any(main_data in data_dir for data_dir in self.data_dirs \
-                                         for main_data in self._hp.main_data):
+                    for main_data in self._hp.main_data):
             for main_data in self._hp.main_data:
                 for data_dir in self.data_dirs:
                     if main_data in data_dir:
@@ -121,16 +123,16 @@ class DataFeeder(threading.Thread):
 
         weight_Z = sum(data_weight.values())
         self.data_ratio = {
-                data_dir: weight / weight_Z for data_dir, weight in data_weight.items()
+            data_dir: weight / weight_Z for data_dir, weight in data_weight.items()
         }
 
-        log("="*40)
+        log("=" * 40)
         log(pprint.pformat(self.data_ratio, indent=4))
-        log("="*40)
+        log("=" * 40)
 
-        #audio_paths = [path.replace("/data/", "/audio/"). \
+        # audio_paths = [path.replace("/data/", "/audio/"). \
         #        replace(".npz", ".wav") for path in self.data_paths]
-        #duration = get_durations(audio_paths, print_detail=False)
+        # duration = get_durations(audio_paths, print_detail=False)
 
         # Create placeholders for inputs and targets. Don't specify batch size because we want to
         # be able to feed different sized batches at eval time.
@@ -150,7 +152,7 @@ class DataFeeder(threading.Thread):
 
         if self.is_multi_speaker:
             self._placeholders.append(
-                    tf.placeholder(tf.int32, [None], 'inputs'),
+                tf.placeholder(tf.int32, [None], 'inputs'),
             )
             dtypes.append(tf.int32)
 
@@ -161,10 +163,10 @@ class DataFeeder(threading.Thread):
 
         if self.is_multi_speaker:
             self.inputs, self.input_lengths, self.loss_coeff, \
-                    self.mel_targets, self.linear_targets, self.speaker_id = queue.dequeue()
+            self.mel_targets, self.linear_targets, self.speaker_id = queue.dequeue()
         else:
             self.inputs, self.input_lengths, self.loss_coeff, \
-                    self.mel_targets, self.linear_targets = queue.dequeue()
+            self.mel_targets, self.linear_targets = queue.dequeue()
 
         self.inputs.set_shape(self._placeholders[0].shape)
         self.input_lengths.set_shape(self._placeholders[1].shape)
@@ -182,7 +184,7 @@ class DataFeeder(threading.Thread):
             while True:
                 for data_dir in self.data_dirs:
                     examples.append(self._get_next_example(data_dir))
-                    #print(data_dir, text.sequence_to_text(examples[-1][0], False, True))
+                    # print(data_dir, text.sequence_to_text(examples[-1][0], False, True))
                     if len(examples) >= self.batch_size:
                         break
                 if len(examples) >= self.batch_size:
@@ -197,7 +199,6 @@ class DataFeeder(threading.Thread):
         self._session = session
         self.start()
 
-
     def run(self):
         try:
             while not self._coord.should_stop():
@@ -205,7 +206,6 @@ class DataFeeder(threading.Thread):
         except Exception as e:
             traceback.print_exc()
             self._coord.request_stop(e)
-
 
     def _enqueue_next_group(self):
         start = time.time()
@@ -226,14 +226,14 @@ class DataFeeder(threading.Thread):
 
                 if self._step < self._hp.initial_phase_step:
                     example = [self._get_next_example(data_dir) \
-                            for _ in range(int(n * self._batches_per_group // len(self.data_dirs)))]
+                               for _ in range(int(n * self._batches_per_group // len(self.data_dirs)))]
                 else:
                     example = [self._get_next_example(data_dir) \
-                            for _ in range(int(n * self._batches_per_group * self.data_ratio[data_dir]))]
+                               for _ in range(int(n * self._batches_per_group * self.data_ratio[data_dir]))]
                 examples.extend(example)
             examples.sort(key=lambda x: x[-1])
 
-            batches = [examples[i:i+n] for i in range(0, len(examples), n)]
+            batches = [examples[i:i + n] for i in range(0, len(examples), n)]
             self.rng.shuffle(batches)
 
         log('Generated %d batches of size %d in %.03f sec' % (len(batches), n, time.time() - start))
@@ -241,7 +241,6 @@ class DataFeeder(threading.Thread):
             feed_dict = dict(zip(self._placeholders, _prepare_batch(batch, r, self.rng, self.data_type)))
             self._session.run(self._enqueue_op, feed_dict=feed_dict)
             self._step += 1
-
 
     def _get_next_example(self, data_dir):
         '''Loads a single example (input, mel_target, linear_target, cost) from disk'''
@@ -282,7 +281,7 @@ class DataFeeder(threading.Thread):
             loss_coeff = 1
         linear_target = data['linear']
 
-        return (input_data, loss_coeff, mel_target, linear_target, 
+        return (input_data, loss_coeff, mel_target, linear_target,
                 self.data_dir_to_id[data_dir], len(linear_target))
 
 
@@ -320,7 +319,7 @@ def _pad_input(x, length):
 
 
 def _pad_target(t, length):
-    return np.pad(t, [(0, length - t.shape[0]), (0,0)], mode='constant', constant_values=_pad)
+    return np.pad(t, [(0, length - t.shape[0]), (0, 0)], mode='constant', constant_values=_pad)
 
 
 def _round_up(x, multiple):

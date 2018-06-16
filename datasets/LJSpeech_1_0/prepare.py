@@ -13,41 +13,47 @@ import argparse
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
 work_dir = os.getcwd()
+
+
 class Data(object):
     def __init__(
-            self, audio_name, audio_transcript,audio_normalized_transcript,audio_path='ERR'):
+            self, audio_name, audio_transcript, audio_normalized_transcript, audio_path='ERR'):
         self.audio_name = audio_name
         self.audio_transcript = audio_transcript
-        self.audio_normalized_transcript=audio_normalized_transcript
+        self.audio_normalized_transcript = audio_normalized_transcript
         self.audio_path = audio_path
 
-def read_csv(path,fn_encoding='UTF8'):
+
+def read_csv(path, fn_encoding='UTF8'):
     # reads csv file into audio snippet name and its transcript
     with open(path, encoding=fn_encoding) as f:
         data = []
-        temp='' # for storing non-normalized
+        temp = ''  # for storing non-normalized
         for line in f:
-            audio_name, audio_transcript,audio_normalized_transcript = line.split('|')
-            audio_transcript=audio_transcript.strip()
-            audio_normalized_transcript=audio_normalized_transcript.strip()
-            data.append(Data(audio_name, audio_transcript,audio_normalized_transcript))
+            audio_name, audio_transcript, audio_normalized_transcript = line.split('|')
+            audio_transcript = audio_transcript.strip()
+            audio_normalized_transcript = audio_normalized_transcript.strip()
+            data.append(Data(audio_name, audio_transcript, audio_normalized_transcript))
         return data
+
 
 def convert_name_to_path(name, audio_dir, audio_format):
     # converts audio snippet name to audio snippet path
-    abs_audio_dir=os.path.abspath(os.path.join(base_dir,audio_dir))
+    abs_audio_dir = os.path.abspath(os.path.join(base_dir, audio_dir))
     # the audio directory is respective to dataset folder(base_dir)
     # while the working directory is at the root directory (work_dir)
-    result= os.path.join('./',os.path.relpath(abs_audio_dir,work_dir), name+'.'+audio_format )
+    result = os.path.join('./', os.path.relpath(abs_audio_dir, work_dir), name + '.' + audio_format)
     return result
+
 
 def convert_to_json_format(data, is_normalized):
     # converts into json format
     if is_normalized:
-        result={data.audio_path:[data.audio_normalized_transcript]}
+        result = {data.audio_path: [data.audio_normalized_transcript]}
     else:
-        result={data.audio_path:[data.audio_transcript]}
+        result = {data.audio_path: [data.audio_transcript]}
     return result
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -58,13 +64,13 @@ if __name__ == '__main__':
     parser.add_argument('--alignment_filename', default="alignment.json")
     parser.add_argument('--use_normalize', default=True, type=str2bool)
     config = parser.parse_args()
-    
-    print(' [*] Reading metadata file - '+config.metadata)
+
+    print(' [*] Reading metadata file - ' + config.metadata)
     data = read_csv(os.path.join(base_dir, config.metadata))
     print(' [*] Converting to audio_path...')
-    results={}
+    results = {}
     for d in data:
-        d.audio_path=convert_name_to_path(d.audio_name,config.audio_dir,config.audio_format) 
+        d.audio_path = convert_name_to_path(d.audio_name, config.audio_dir, config.audio_format)
         results.update(convert_to_json_format(d, config.use_normalize))
     print(' [*] Saving to json...')
     alignment_path = \
@@ -74,4 +80,3 @@ if __name__ == '__main__':
     write_json(alignment_path, results)
     print(' [!] All Done!')
     print(work_dir)
-    
