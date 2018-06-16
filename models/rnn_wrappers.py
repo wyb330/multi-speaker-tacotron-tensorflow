@@ -1,8 +1,7 @@
-import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.rnn import RNNCell
 from tensorflow.python.ops import rnn_cell_impl
-from tensorflow.contrib.data.python.util import nest
+from tensorflow.python.util import nest
 from tensorflow.contrib.seq2seq.python.ops.attention_wrapper \
                 import _bahdanau_score, _BaseAttentionMechanism, BahdanauAttention, \
                              AttentionWrapperState, AttentionMechanism
@@ -107,7 +106,7 @@ class AttentionWrapper(RNNCell):
                         "integer per attention_mechanism, saw: %d vs %d"
                         % (len(attention_layer_sizes), len(attention_mechanisms)))
             self._attention_layers = tuple(
-                    layers_core.Dense(
+                    tf.layers.Dense(
                             attention_layer_size, name="attention_layer", use_bias=False)
                     for attention_layer_size in attention_layer_sizes)
             self._attention_layer_size = sum(attention_layer_sizes)
@@ -178,6 +177,8 @@ class AttentionWrapper(RNNCell):
                 cell_state=self._cell.state_size,
                 time=tf.TensorShape([]),
                 attention=self._attention_layer_size,
+                attention_state=self._item_or_tuple(
+                    a.state_size for a in self._attention_mechanisms),
                 alignments=self._item_or_tuple(
                         a.alignments_size for a in self._attention_mechanisms),
                 alignment_history=self._item_or_tuple(
@@ -207,6 +208,8 @@ class AttentionWrapper(RNNCell):
                     cell_state=cell_state,
                     time=tf.zeros([], dtype=tf.int32),
                     attention=_zero_state_tensors(self._attention_layer_size, batch_size, dtype),
+                    attention_state=self._item_or_tuple(
+                        a.state_size for a in self._attention_mechanisms),
                     alignments=self._item_or_tuple(
                             attention_mechanism.initial_alignments(batch_size, dtype)
                             for attention_mechanism in self._attention_mechanisms),
