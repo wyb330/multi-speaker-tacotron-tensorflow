@@ -1,24 +1,33 @@
-import os 
-import matplotlib
-from jamo import h2j, j2hcj
-
-matplotlib.use('Agg')
-matplotlib.rc('font', family="NanumBarunGothic")
 import matplotlib.pyplot as plt
-
+import matplotlib.font_manager as font_manager
+from matplotlib.pyplot import rc
+from jamo import h2j, j2hcj
 from text import PAD, EOS
-from utils import add_postfix
 from text.korean import normalize
 
-def plot(alignment, info, text, isKorean=True):
-    char_len, audio_len = alignment.shape # 145, 200
+FONT_NAME = "NanumBarunGothic"
 
-    fig, ax = plt.subplots(figsize=(char_len/5, 5))
+
+def check_font():
+    flist = font_manager.findSystemFonts()
+    names = [font_manager.FontProperties(fname=fname).get_name() for fname in flist]
+    if not (FONT_NAME in names):
+        font_manager._rebuild()
+
+
+check_font()
+rc('font', family=FONT_NAME)
+
+
+def plot(alignment, info, text, isKorean=True):
+    char_len, audio_len = alignment.shape  # 145, 200
+
+    fig, ax = plt.subplots(figsize=(char_len / 5, 5))
     im = ax.imshow(
-            alignment.T,
-            aspect='auto',
-            origin='lower',
-            interpolation='none')
+        alignment.T,
+        aspect='auto',
+        origin='lower',
+        interpolation='none')
 
     xlabel = 'Encoder timestep'
     ylabel = 'Decoder timestep'
@@ -33,11 +42,11 @@ def plot(alignment, info, text, isKorean=True):
         if isKorean:
             jamo_text = j2hcj(h2j(normalize(text)))
         else:
-            jamo_text=text
+            jamo_text = text
         pad = [PAD] * (char_len - len(jamo_text) - 1)
 
         plt.xticks(range(char_len),
-                [tok for tok in jamo_text] + [EOS] + pad)
+                   [tok for tok in jamo_text] + [EOS] + pad)
 
     if text is not None:
         while True:
@@ -49,9 +58,9 @@ def plot(alignment, info, text, isKorean=True):
 
     plt.tight_layout()
 
+
 def plot_alignment(
         alignment, path, info=None, text=None, isKorean=True):
-
     if text:
         tmp_alignment = alignment[:len(h2j(text)) + 2]
 
@@ -62,3 +71,4 @@ def plot_alignment(
         plt.savefig(path, format='png')
 
     print(" [*] Plot saved: {}".format(path))
+
