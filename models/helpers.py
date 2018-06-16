@@ -24,6 +24,14 @@ class TacoTestHelper(Helper):
     def sample(self, time, outputs, state, name=None):
         return tf.tile([0], [self._batch_size])  # Return all 0; we ignore them
 
+    @property
+    def sample_ids_shape(self):
+        return tensor_shape.TensorShape([])
+
+    @property
+    def sample_ids_dtype(self):
+        return dtypes.int32
+
     def next_inputs(self, time, outputs, state, sample_ids, name=None):
         '''Stop on EOS. Otherwise, pass the last output as the next input and pass through state.'''
         with tf.name_scope('TacoTestHelper'):
