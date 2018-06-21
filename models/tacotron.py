@@ -1,7 +1,6 @@
 # Code based on https://github.com/keithito/tacotron/blob/master/models/tacotron.py
 
 import numpy as np
-import tensorflow as tf
 from tensorflow.contrib.seq2seq import BasicDecoder, LuongAttention, BahdanauAttention, BahdanauMonotonicAttention
 from tensorflow.contrib.rnn import GRUCell, MultiRNNCell, OutputProjectionWrapper, ResidualWrapper
 
@@ -11,6 +10,18 @@ from text.symbols import symbols
 from .modules import *
 from .helpers import TacoTestHelper, TacoTrainingHelper
 from .rnn_wrappers import AttentionWrapper, DecoderPrenetWrapper, ConcatOutputAndAttentionWrapper
+
+
+# Code from https://www.github.com/kyubyong/dc_tts/utils.py
+def guided_attention(max_N, max_T, g=0.2):
+    '''Guided attention. Refer to page 3 on the paper.
+       W = 1 - exp{-(n/N - t/T)^2 / 2G^2)}
+    '''
+    W = np.zeros((max_N, max_T), dtype=np.float32)
+    for n_pos in range(W.shape[0]):
+        for t_pos in range(W.shape[1]):
+            W[n_pos, t_pos] = 1 - np.exp(-(t_pos / float(max_T) - n_pos / float(max_N)) ** 2 / (2 * g * g))
+    return W
 
 
 class Tacotron():
@@ -233,7 +244,7 @@ class Tacotron():
             linear_outputs = tf.layers.dense(post_outputs, hp.num_freq)  # [N, T_out, F]
 
             # Grab alignments from the final decoder state:
-            alignments = tf.transpose(
+            self.alignments = tf.transpose(
                 final_decoder_state[0].alignment_history.stack(), [1, 2, 0])
 
             self.inputs = inputs
@@ -242,7 +253,7 @@ class Tacotron():
             self.loss_coeff = loss_coeff
             self.mel_outputs = mel_outputs
             self.linear_outputs = linear_outputs
-            self.alignments = alignments
+            self.alignments = self.alignments
             self.mel_targets = mel_targets
             self.linear_targets = linear_targets
             self.final_decoder_state = final_decoder_state
@@ -277,6 +288,14 @@ class Tacotron():
             expanded_loss_coeff = tf.expand_dims(
                 tf.expand_dims(self.loss_coeff, [-1]), [-1])
 
+            # guided_attention loss
+            max_N = len(symbols)  # Maximum number of characters
+            pad_alignment = tf.pad(self.alignments, [(0, 0), (0, max_N), (0, hp.num_mels)], mode="CONSTANT",
+                                   constant_values=-1.)[:, :max_N, :hp.num_mels]
+            self.attention_masks = tf.to_float(tf.not_equal(pad_alignment, -1))
+            gts = tf.convert_to_tensor(guided_attention(max_N, hp.num_mels))
+            self.loss_attention = tf.sqrt(tf.reduce_sum(tf.abs(pad_alignment * gts) * self.attention_masks))
+
             if hp.prioritize_loss:
                 # Prioritize loss for frequencies.
                 upper_priority_freq = int(5000 / (hp.sample_rate * 0.5) * hp.num_freq)
@@ -286,16 +305,17 @@ class Tacotron():
 
                 self.loss = tf.reduce_mean(mel_loss * expanded_loss_coeff) + \
                             0.5 * tf.reduce_mean(l1 * expanded_loss_coeff) + \
-                            0.5 * tf.reduce_mean(l1_priority * expanded_loss_coeff)
+                            0.5 * tf.reduce_mean(l1_priority * expanded_loss_coeff) + \
+                            self.loss_attention
                 self.linear_loss = tf.reduce_mean(
                     0.5 * (tf.reduce_mean(l1) + tf.reduce_mean(l1_priority)))
             else:
                 self.loss = tf.reduce_mean(mel_loss * expanded_loss_coeff) + \
-                            tf.reduce_mean(l1 * expanded_loss_coeff)
+                            tf.reduce_mean(l1 * expanded_loss_coeff) + self.loss_attention
                 self.linear_loss = tf.reduce_mean(l1)
 
             self.mel_loss = tf.reduce_mean(mel_loss)
-            self.loss_without_coeff = self.mel_loss + self.linear_loss
+            self.loss_without_coeff = self.mel_loss + self.linear_loss + self.loss_attention
 
     def add_optimizer(self, global_step):
         '''Adds optimizer. Sets "gradients" and "optimize" fields. add_loss must have been called.
