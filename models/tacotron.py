@@ -278,7 +278,7 @@ class Tacotron():
             log('    postnet out:              %d' % post_outputs.shape[-1])
             log('    linear out:               %d' % linear_outputs.shape[-1])
 
-    def add_loss(self):
+    def add_loss(self, global_step):
         '''Adds loss to the model. Sets "loss" field. initialize must have been called.'''
         with tf.variable_scope('loss') as scope:
             hp = self._hparams
@@ -289,12 +289,13 @@ class Tacotron():
                 tf.expand_dims(self.loss_coeff, [-1]), [-1])
 
             # guided_attention loss
-            max_N = len(symbols)  # Maximum number of characters
-            pad_alignment = tf.pad(self.alignments, [(0, 0), (0, max_N), (0, hp.num_mels)], mode="CONSTANT",
-                                   constant_values=-1.)[:, :max_N, :hp.num_mels]
+            pad_alignment = tf.pad(self.alignments, [(0, 0), (0, hp.max_N), (0, hp.max_T)], mode="CONSTANT",
+                                   constant_values=-1.)[:, :hp.max_N, :hp.max_T]
             self.attention_masks = tf.to_float(tf.not_equal(pad_alignment, -1))
-            gts = tf.convert_to_tensor(guided_attention(max_N, hp.num_mels))
-            self.loss_attention = tf.sqrt(tf.reduce_sum(tf.abs(pad_alignment * gts) * self.attention_masks))
+            gts = tf.convert_to_tensor(guided_attention(hp.max_N, hp.max_T))
+            step = tf.cast(global_step + 1, dtype=tf.float32)
+            factor = tf.exp(-(step / hp.attention_factor) ** 2)
+            self.loss_attention = factor * tf.reduce_sum(tf.abs(pad_alignment * gts) * self.attention_masks)
 
             if hp.prioritize_loss:
                 # Prioritize loss for frequencies.

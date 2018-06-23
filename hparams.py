@@ -43,7 +43,7 @@ basic_params.update({
     'enc_bank_size': 16,
     'enc_bank_channel_size': f(128),
     'enc_maxpool_width': 2,
-    'enc_highway_depth': 4,
+    'enc_highway_depth': 2,
     'enc_rnn_size': f(128),
     'enc_proj_sizes': [f(128), f(128)],
     'enc_proj_width': 3,
@@ -62,7 +62,7 @@ basic_params.update({
     'post_bank_size': 8,
     'post_bank_channel_size': f(256),
     'post_maxpool_width': 2,
-    'post_highway_depth': 4,
+    'post_highway_depth': 2,
     'post_rnn_size': f(128),
     'post_proj_sizes': [f(256), 80],  # num_mels=80
     'post_proj_width': 3,
@@ -120,7 +120,7 @@ elif False:  # Single Speaker with generalization
 
 basic_params.update({
     # Training
-    'batch_size': 32,
+    'batch_size': 10,
     'adam_beta1': 0.9,
     'adam_beta2': 0.999,
     'use_fixed_test_inputs': False,
@@ -144,6 +144,9 @@ basic_params.update({
 
     'griffin_lim_iters': 60,
     'power': 1.5,  # Power to raise magnitudes to prior to Griffin-Lim
+    'attention_factor': 4000,
+    'max_N': 180,  # Maximum number of characters.
+    'max_T': 210  # Maximum number of mel frames.
 })
 
 # Default hyperparameters:

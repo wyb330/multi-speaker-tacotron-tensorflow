@@ -7,7 +7,6 @@ import subprocess
 import numpy as np
 from jamo import h2j
 import tensorflow as tf
-from datetime import datetime
 from functools import partial
 
 from hparams import hparams, hparams_debug_string
@@ -52,6 +51,7 @@ def add_stats(model, model2=None, scope_name='train'):
         summaries = [
             tf.summary.scalar('loss_mel', model.mel_loss),
             tf.summary.scalar('loss_linear', model.linear_loss),
+            tf.summary.scalar('loss_attention', model.loss_attention),
             tf.summary.scalar('loss', model.loss_without_coeff),
         ]
 
@@ -128,7 +128,6 @@ def train(log_dir, config):
 
     log(' [*] git recv-parse HEAD:\n%s' % get_git_revision_hash())
     log('=' * 50)
-    # log(' [*] dit diff:\n%s' % get_git_diff())
     log('=' * 50)
     log(' [*] Checkpoint path: %s' % checkpoint_path)
     log(' [*] Loading training data from: %s' % data_dirs)
@@ -158,7 +157,7 @@ def train(log_dir, config):
             train_feeder.loss_coeff,
             is_randomly_initialized=is_randomly_initialized)
 
-        model.add_loss()
+        model.add_loss(global_step)
         model.add_optimizer(global_step)
         train_stats = add_stats(model, scope_name='stats')  # legacy
 
@@ -170,7 +169,7 @@ def train(log_dir, config):
             test_feeder.mel_targets, test_feeder.linear_targets,
             test_feeder.loss_coeff, rnn_decoder_test_mode=True,
             is_randomly_initialized=is_randomly_initialized)
-        test_model.add_loss()
+        test_model.add_loss(global_step)
 
     test_stats = add_stats(test_model, model, scope_name='test')
     test_stats = tf.summary.merge([test_stats, train_stats])
@@ -221,15 +220,15 @@ def train(log_dir, config):
 
             while not coord.should_stop():
                 start_time = time.time()
-                step, loss, opt = sess.run(
-                    [global_step, model.loss_without_coeff, model.optimize],
+                step, loss, att_loss, opt = sess.run(
+                    [global_step, model.loss_without_coeff, model.loss_attention, model.optimize],
                     feed_dict=model.get_dummy_feed_dict())
 
                 time_window.append(time.time() - start_time)
                 loss_window.append(loss)
 
-                message = 'Step %-7d [%.03f sec/step, loss=%.05f, avg_loss=%.05f]' % (
-                    step, time_window.average, loss, loss_window.average)
+                message = 'Step %-7d [%.03f sec/step, loss=%.05f, attention loss=%.05f, avg_loss=%.05f]' % (
+                    step, time_window.average, loss, att_loss, loss_window.average)
                 log(message, slack=(step % config.checkpoint_interval == 0))
 
                 if loss > 100 or math.isnan(loss):
@@ -292,11 +291,11 @@ def main():
 
     parser.add_argument('--num_test_per_speaker', type=int, default=2)
     parser.add_argument('--random_seed', type=int, default=123)
-    parser.add_argument('--summary_interval', type=int, default=100)
-    parser.add_argument('--test_interval', type=int, default=500)
-    parser.add_argument('--checkpoint_interval', type=int, default=1000)
+    parser.add_argument('--summary_interval', type=int, default=20)
+    parser.add_argument('--test_interval', type=int, default=200)
+    parser.add_argument('--checkpoint_interval', type=int, default=200)
     parser.add_argument('--skip_path_filter',
-                        type=str2bool, default=True, help='Use only for debugging')
+                        type=str2bool, default=False, help='Use only for debugging')
 
     parser.add_argument('--slack_url',
                         help='Slack webhook URL to get periodic reports.')
