@@ -1,10 +1,17 @@
 import os
 from glob import glob
 from .tacotron import Tacotron
+from .tacotron2 import Tacotron2
 
 
-def create_model(hparams):
-  return Tacotron(hparams)
+def create_model(name, hparams):
+    if name == 'tacotron':
+        return Tacotron(hparams)
+    elif name == 'tacotron2':
+        print('using Tacotron2 model')
+        return Tacotron2(hparams)
+    else:
+        raise Exception('Unknown model: ' + name)
 
 
 def get_most_recent_checkpoint(checkpoint_dir):
@@ -14,6 +21,6 @@ def get_most_recent_checkpoint(checkpoint_dir):
     max_idx = max(idxes)
     lastest_checkpoint = os.path.join(checkpoint_dir, "model.ckpt-{}".format(max_idx))
 
-    #latest_checkpoint=checkpoint_paths[0]
+    # latest_checkpoint=checkpoint_paths[0]
     print(" [*] Found lastest checkpoint: {}".format(lastest_checkpoint))
     return lastest_checkpoint

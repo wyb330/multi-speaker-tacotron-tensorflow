@@ -52,7 +52,7 @@ def add_stats(model, model2=None, scope_name='train'):
             tf.summary.scalar('loss_mel', model.mel_loss),
             tf.summary.scalar('loss_linear', model.linear_loss),
             tf.summary.scalar('loss_attention', model.loss_attention),
-            tf.summary.scalar('loss', model.loss_without_coeff),
+            tf.summary.scalar('loss', model.loss),
         ]
 
         if scope_name == 'train':
@@ -66,12 +66,9 @@ def add_stats(model, model2=None, scope_name='train'):
     if model2 is not None:
         with tf.variable_scope('gap_test-train') as scope:
             summaries.extend([
-                tf.summary.scalar('loss_mel',
-                                  model.mel_loss - model2.mel_loss),
-                tf.summary.scalar('loss_linear',
-                                  model.linear_loss - model2.linear_loss),
-                tf.summary.scalar('loss',
-                                  model.loss_without_coeff - model2.loss_without_coeff),
+                tf.summary.scalar('loss_mel', model.mel_loss - model2.mel_loss),
+                tf.summary.scalar('loss_linear', model.linear_loss - model2.linear_loss),
+                tf.summary.scalar('loss', model.loss - model2.loss),
             ])
 
     return tf.summary.merge(summaries)
@@ -149,7 +146,7 @@ def train(log_dir, config):
     global_step = tf.Variable(0, name='global_step', trainable=False)
 
     with tf.variable_scope('model') as scope:
-        model = create_model(hparams)
+        model = create_model(config.model, hparams)
         model.initialize(
             train_feeder.inputs, train_feeder.input_lengths,
             num_speakers, train_feeder.speaker_id,
@@ -162,7 +159,7 @@ def train(log_dir, config):
         train_stats = add_stats(model, scope_name='stats')  # legacy
 
     with tf.variable_scope('model', reuse=True) as scope:
-        test_model = create_model(hparams)
+        test_model = create_model(config.model, hparams)
         test_model.initialize(
             test_feeder.inputs, test_feeder.input_lengths,
             num_speakers, test_feeder.speaker_id,
@@ -175,7 +172,6 @@ def train(log_dir, config):
     test_stats = tf.summary.merge([test_stats, train_stats])
 
     # Bookkeeping:
-    step = 0
     time_window = ValueWindow(100)
     loss_window = ValueWindow(100)
     saver = tf.train.Saver(max_to_keep=None, keep_checkpoint_every_n_hours=2)
@@ -221,7 +217,7 @@ def train(log_dir, config):
             while not coord.should_stop():
                 start_time = time.time()
                 step, loss, att_loss, opt = sess.run(
-                    [global_step, model.loss_without_coeff, model.loss_attention, model.optimize],
+                    [global_step, model.loss, model.loss_attention, model.optimize],
                     feed_dict=model.get_dummy_feed_dict())
 
                 time_window.append(time.time() - start_time)
@@ -289,6 +285,7 @@ def main():
     parser.add_argument('--load_path', default=None)
     parser.add_argument('--initialize_path', default=None)
 
+    parser.add_argument('--model', default='tacotron', help='tacotron or tacotron2')
     parser.add_argument('--num_test_per_speaker', type=int, default=2)
     parser.add_argument('--random_seed', type=int, default=123)
     parser.add_argument('--summary_interval', type=int, default=100)

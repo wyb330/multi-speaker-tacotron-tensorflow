@@ -148,6 +148,26 @@ basic_params.update({
     'max_T': 180  # Maximum number of mel frames.
 })
 
+# Tacotron2 Hyperparameter
+basic_params.update({
+    'embedding_dim': 512,
+    'encoder_lstm_units': 256,     # For each direction
+    'attention_depth': 128,
+    'decoder_lstm_units': 1024,
+    'encoder_conv_layers': 3,
+    'encoder_conv_width': 5,
+    'encoder_conv_channels': 512,
+    'postnet_conv_layers': 5,
+    'postnet_conv_width': 5,
+    'postnet_conv_channels': 512,
+    'expand_conv_layers': 5,
+    'expand_conv_width': 5,
+    'expand_conv_channels': 512,
+    'expand_lstm_units': 256,
+    'outputs_per_step': 5,
+    'learning_rate_decay_halflife': 100000,
+})
+
 # Default hyperparameters:
 hparams = tf.contrib.training.HParams(**basic_params)
 

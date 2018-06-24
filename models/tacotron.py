@@ -153,10 +153,10 @@ class Tacotron():
             elif hp.attention_type == 'bah':
                 attention_mechanism = BahdanauAttention(
                     hp.attention_size, encoder_outputs)
-            elif hp.attention_type.startswith('ntm2'):
-                shift_width = int(hp.attention_type.split('-')[-1])
-                attention_mechanism = NTMAttention2(
-                    hp.attention_size, encoder_outputs, shift_width=shift_width)
+            # elif hp.attention_type.startswith('ntm2'):
+            #     shift_width = int(hp.attention_type.split('-')[-1])
+            #     attention_mechanism = NTMAttention2(
+            #         hp.attention_size, encoder_outputs, shift_width=shift_width)
             else:
                 raise Exception(" [!] Unkown attention type: {}".format(hp.attention_type))
 
@@ -295,6 +295,7 @@ class Tacotron():
             gts = tf.convert_to_tensor(guided_attention(hp.max_N, hp.max_T))
             self.alignments_guide = tf.abs(pad_alignment * gts) * attention_masks
             self.loss_attention = tf.reduce_sum(self.alignments_guide) / tf.to_float(self.batch_size)
+            self.loss_attention = tf.clip_by_value(self.loss_attention, 0, 10)
 
             if hp.prioritize_loss:
                 # Prioritize loss for frequencies.
