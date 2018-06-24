@@ -29,6 +29,7 @@ def plot(alignment, info, text, isKorean=True):
         origin='lower',
         interpolation='none')
 
+    # fig.colorbar(im, ax=ax)
     xlabel = 'Encoder timestep'
     ylabel = 'Decoder timestep'
 
@@ -72,3 +73,29 @@ def plot_alignment(
 
     print(" [*] Plot saved: {}".format(path))
 
+
+if __name__ == '__main__':
+    # guided alignment test
+    import numpy as np
+    max_N = 90
+    max_T = 200
+    g = 0.2
+    W = np.zeros((max_N, max_T), dtype=np.float32)
+    for n_pos in range(W.shape[0]):
+        for t_pos in range(W.shape[1]):
+            W[n_pos, t_pos] = 1 - np.exp(-(t_pos / float(max_T) - n_pos / float(max_N)) ** 2 / (2 * g * g))
+    # plot(W, None, None, False)
+
+    alignment = np.zeros((max_N, max_T), dtype=np.float32)
+    for n_pos in range(alignment.shape[0]):
+        for t_pos in range(alignment.shape[1]):
+            alignment[n_pos, t_pos] = 1 / (1 + abs(n_pos * (max_T / max_N) - t_pos))
+    # plot(alignment, None, None, False)
+
+    attention = alignment * W
+    # plot(attention, None, None, False)
+
+    plt.subplot(1, 3, 1), plt.imshow(W, origin='lower'), plt.title('weight'), plt.xticks([]), plt.yticks([])
+    plt.subplot(1, 3, 2), plt.imshow(alignment, origin='lower'), plt.title('alignment'), plt.xticks([]), plt.yticks([])
+    plt.subplot(1, 3, 3), plt.imshow(attention, origin='lower'), plt.title('attention'), plt.xticks([]), plt.yticks([])
+    plt.show()

@@ -32,7 +32,6 @@ def get_path_dict(
     # Load metadata:
     path_dict = {}
     for data_dir in data_dirs:
-        print(data_dir)
         paths = glob("{}/*.npz".format(data_dir))
 
         if data_type == 'train':

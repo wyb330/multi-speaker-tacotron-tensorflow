@@ -157,7 +157,7 @@ def train(log_dir, config):
             train_feeder.loss_coeff,
             is_randomly_initialized=is_randomly_initialized)
 
-        model.add_loss(global_step)
+        model.add_loss()
         model.add_optimizer(global_step)
         train_stats = add_stats(model, scope_name='stats')  # legacy
 
@@ -169,7 +169,7 @@ def train(log_dir, config):
             test_feeder.mel_targets, test_feeder.linear_targets,
             test_feeder.loss_coeff, rnn_decoder_test_mode=True,
             is_randomly_initialized=is_randomly_initialized)
-        test_model.add_loss(global_step)
+        test_model.add_loss()
 
     test_stats = add_stats(test_model, model, scope_name='test')
     test_stats = tf.summary.merge([test_stats, train_stats])
@@ -227,7 +227,7 @@ def train(log_dir, config):
                 time_window.append(time.time() - start_time)
                 loss_window.append(loss)
 
-                message = 'Step %-7d [%.03f sec/step, loss=%.05f, attention loss=%.05f, avg_loss=%.05f]' % (
+                message = 'Step %-7d [%.03f sec/step, loss=%.05f, attention=%.05f, avg_loss=%.05f]' % (
                     step, time_window.average, loss, att_loss, loss_window.average)
                 log(message, slack=(step % config.checkpoint_interval == 0))
 
@@ -291,9 +291,9 @@ def main():
 
     parser.add_argument('--num_test_per_speaker', type=int, default=2)
     parser.add_argument('--random_seed', type=int, default=123)
-    parser.add_argument('--summary_interval', type=int, default=20)
-    parser.add_argument('--test_interval', type=int, default=200)
-    parser.add_argument('--checkpoint_interval', type=int, default=200)
+    parser.add_argument('--summary_interval', type=int, default=100)
+    parser.add_argument('--test_interval', type=int, default=100)
+    parser.add_argument('--checkpoint_interval', type=int, default=500)
     parser.add_argument('--skip_path_filter',
                         type=str2bool, default=False, help='Use only for debugging')
 

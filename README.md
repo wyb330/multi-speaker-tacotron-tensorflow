@@ -103,7 +103,7 @@ Because the automatic generation is extremely naive, the dataset is noisy. Howev
 
 3. Finally, generate numpy files which will be used in training.
 		
-		python3 -m datasets.generate_data ./datasets/LJSpeech_1_0
+		python3 -m datasets.generate_data ./datasets/LJSpeech_1_0/alignment.json
 		
 
 ### 3. Train a model
@@ -138,7 +138,11 @@ You can train your own models with:
 or generate audio directly with:
 
     python3 synthesizer.py --load_path logs/son-20171015 --text "이거 실화냐?"
-	
+
+or generate multi-speaker audio with:
+
+    python3 synthesizer.py --load_path logs/son_moon_20180617 --num_speakers=2 --speaker_id=1 --text "이거 실화냐?"
+
 ### 4-1. Synthesizing non-korean(english) audio
 
 For generating non-korean audio, you must set the argument --is_korean False.

@@ -38,7 +38,7 @@ class Tacotron():
 
         with tf.variable_scope('inference') as scope:
             hp = self._hparams
-            batch_size = tf.shape(inputs)[0]
+            self.batch_size = tf.shape(inputs)[0]
 
             # Embeddings
             char_embed_table = tf.get_variable(
@@ -187,7 +187,7 @@ class Tacotron():
             output_cell = OutputProjectionWrapper(
                 decoder_cell, hp.num_mels * hp.reduction_factor)
             decoder_init_state = output_cell.zero_state(
-                batch_size=batch_size, dtype=tf.float32)
+                batch_size=self.batch_size, dtype=tf.float32)
 
             if hp.model_type == "deepvoice":
                 # decoder_init_state[0] : AttentionWrapperState
@@ -211,7 +211,7 @@ class Tacotron():
                     rnn_decoder_test_mode)
             else:
                 helper = TacoTestHelper(
-                    batch_size, hp.num_mels, hp.reduction_factor)
+                    self.batch_size, hp.num_mels, hp.reduction_factor)
 
             (decoder_outputs, _), final_decoder_state, _ = \
                 tf.contrib.seq2seq.dynamic_decode(
@@ -220,7 +220,7 @@ class Tacotron():
 
             # [N, T_out, M]
             mel_outputs = tf.reshape(
-                decoder_outputs, [batch_size, -1, hp.num_mels])
+                decoder_outputs, [self.batch_size, -1, hp.num_mels])
 
             # Add post-processing CBHG:
             # [N, T_out, 256]
@@ -278,7 +278,7 @@ class Tacotron():
             log('    postnet out:              %d' % post_outputs.shape[-1])
             log('    linear out:               %d' % linear_outputs.shape[-1])
 
-    def add_loss(self, global_step):
+    def add_loss(self):
         '''Adds loss to the model. Sets "loss" field. initialize must have been called.'''
         with tf.variable_scope('loss') as scope:
             hp = self._hparams
@@ -291,11 +291,10 @@ class Tacotron():
             # guided_attention loss
             pad_alignment = tf.pad(self.alignments, [(0, 0), (0, hp.max_N), (0, hp.max_T)], mode="CONSTANT",
                                    constant_values=-1.)[:, :hp.max_N, :hp.max_T]
-            self.attention_masks = tf.to_float(tf.not_equal(pad_alignment, -1))
+            attention_masks = tf.to_float(tf.not_equal(pad_alignment, -1))
             gts = tf.convert_to_tensor(guided_attention(hp.max_N, hp.max_T))
-            step = tf.cast(global_step + 1, dtype=tf.float32)
-            factor = tf.exp(-(step / hp.attention_factor) ** 2)
-            self.loss_attention = factor * tf.reduce_sum(tf.abs(pad_alignment * gts) * self.attention_masks)
+            self.alignments_guide = tf.abs(pad_alignment * gts) * attention_masks
+            self.loss_attention = tf.reduce_sum(self.alignments_guide) / tf.to_float(self.batch_size)
 
             if hp.prioritize_loss:
                 # Prioritize loss for frequencies.
