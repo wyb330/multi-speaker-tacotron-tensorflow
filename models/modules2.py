@@ -52,3 +52,5 @@ def conv1d(inputs, kernel_size, channels, activation, is_training, scope):
             activation=activation,
             padding='same')
         return tf.layers.batch_normalization(conv1d_output, training=is_training)
+
+

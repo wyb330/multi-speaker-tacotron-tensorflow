@@ -8,14 +8,11 @@ import numpy as np
 from jamo import h2j
 import tensorflow as tf
 from functools import partial
-
 from hparams import hparams, hparams_debug_string
 from models import create_model, get_most_recent_checkpoint
-
 from utils import ValueWindow, prepare_dirs
 from utils import infolog, warning, plot, load_hparams
 from utils import get_git_revision_hash, get_git_diff, str2bool, parallel_run
-
 from audio import save_audio, inv_spectrogram
 from text import sequence_to_text, text_to_sequence
 from datasets.datafeeder import DataFeeder, _prepare_inputs
@@ -266,9 +263,12 @@ def train(log_dir, config):
                     test_sequences, test_spectrograms, test_alignments = \
                         sess.run(fetches, feed_dict=feed_dict)
 
+                    print(np.argmax(np.transpose(alignments[0]), axis=-1))
+                    # for v in np.transpose(alignments[0]):
+                    #     print(v)
                     save_and_plot(sequences[:1], spectrograms[:1], alignments[:1],
                                   log_dir, step, loss, "train")
-                    save_and_plot(test_sequences, test_spectrograms, test_alignments,
+                    save_and_plot(test_sequences, test_spectrograms, test_alignments[:1],
                                   log_dir, step, loss, "test")
 
         except Exception as e:
@@ -288,11 +288,11 @@ def main():
     parser.add_argument('--model', default='tacotron', help='tacotron or tacotron2')
     parser.add_argument('--num_test_per_speaker', type=int, default=2)
     parser.add_argument('--random_seed', type=int, default=123)
-    parser.add_argument('--summary_interval', type=int, default=100)
+    parser.add_argument('--summary_interval', type=int, default=20)
     parser.add_argument('--test_interval', type=int, default=100)
     parser.add_argument('--checkpoint_interval', type=int, default=500)
     parser.add_argument('--skip_path_filter',
-                        type=str2bool, default=False, help='Use only for debugging')
+                        type=str2bool, default=True, help='Use only for debugging')
 
     parser.add_argument('--slack_url',
                         help='Slack webhook URL to get periodic reports.')

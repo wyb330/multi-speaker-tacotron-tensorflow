@@ -1,15 +1,14 @@
 # Code based on https://github.com/keithito/tacotron/blob/master/models/tacotron.py
 
 import numpy as np
-from tensorflow.contrib.seq2seq import BasicDecoder, LuongAttention, BahdanauAttention, BahdanauMonotonicAttention
-from tensorflow.contrib.rnn import GRUCell, MultiRNNCell, OutputProjectionWrapper, ResidualWrapper
-
+from tensorflow.contrib.seq2seq import BasicDecoder, LuongAttention, BahdanauAttention, BahdanauMonotonicAttention, LuongMonotonicAttention
+from tensorflow.contrib.rnn import MultiRNNCell, OutputProjectionWrapper, ResidualWrapper
 from utils.infolog import log
 from text.symbols import symbols
-
 from .modules import *
 from .helpers import TacoTestHelper, TacoTrainingHelper
 from .rnn_wrappers import AttentionWrapper, DecoderPrenetWrapper, ConcatOutputAndAttentionWrapper
+from .attention import LocationSensitiveAttention
 
 
 # Code from https://www.github.com/kyubyong/dc_tts/utils.py
@@ -138,28 +137,7 @@ class Tacotron():
                 speaker_embed,
                 is_training, hp.dec_prenet_sizes, hp.dropout_prob)
 
-            if hp.attention_type == 'bah_mon':
-                attention_mechanism = BahdanauMonotonicAttention(
-                    hp.attention_size, encoder_outputs)
-            elif hp.attention_type == 'bah_norm':
-                attention_mechanism = BahdanauAttention(
-                    hp.attention_size, encoder_outputs, normalize=True)
-            elif hp.attention_type == 'luong_scaled':
-                attention_mechanism = LuongAttention(
-                    hp.attention_size, encoder_outputs, scale=True)
-            elif hp.attention_type == 'luong':
-                attention_mechanism = LuongAttention(
-                    hp.attention_size, encoder_outputs)
-            elif hp.attention_type == 'bah':
-                attention_mechanism = BahdanauAttention(
-                    hp.attention_size, encoder_outputs)
-            # elif hp.attention_type.startswith('ntm2'):
-            #     shift_width = int(hp.attention_type.split('-')[-1])
-            #     attention_mechanism = NTMAttention2(
-            #         hp.attention_size, encoder_outputs, shift_width=shift_width)
-            else:
-                raise Exception(" [!] Unkown attention type: {}".format(hp.attention_type))
-
+            attention_mechanism = create_attention_mechanism(hp, encoder_outputs)
             attention_cell = AttentionWrapper(
                 dec_prenet_outputs,
                 attention_mechanism,
@@ -244,8 +222,7 @@ class Tacotron():
             linear_outputs = tf.layers.dense(post_outputs, hp.num_freq)  # [N, T_out, F]
 
             # Grab alignments from the final decoder state:
-            self.alignments = tf.transpose(
-                final_decoder_state[0].alignment_history.stack(), [1, 2, 0])
+            alignments = tf.transpose(final_decoder_state[0].alignment_history.stack(), [1, 2, 0])
 
             self.inputs = inputs
             self.speaker_id = speaker_id
@@ -253,10 +230,11 @@ class Tacotron():
             self.loss_coeff = loss_coeff
             self.mel_outputs = mel_outputs
             self.linear_outputs = linear_outputs
-            self.alignments = self.alignments
+            self.alignments = alignments
             self.mel_targets = mel_targets
             self.linear_targets = linear_targets
             self.final_decoder_state = final_decoder_state
+            self.input_lengths = input_lengths
 
             log('=' * 40)
             log(' model_type: %s' % hp.model_type)
@@ -294,7 +272,7 @@ class Tacotron():
             attention_masks = tf.to_float(tf.not_equal(pad_alignment, -1))
             gts = tf.convert_to_tensor(guided_attention(hp.max_N, hp.max_T))
             self.alignments_guide = tf.abs(pad_alignment * gts) * attention_masks
-            self.loss_attention = tf.reduce_sum(self.alignments_guide) / tf.to_float(self.batch_size)
+            self.loss_attention = tf.reduce_sum(self.alignments_guide) / (tf.reduce_mean(tf.to_float(self.input_lengths)))
             self.loss_attention = tf.clip_by_value(self.loss_attention, 0, 10)
 
             if hp.prioritize_loss:
@@ -311,12 +289,16 @@ class Tacotron():
                 self.linear_loss = tf.reduce_mean(
                     0.5 * (tf.reduce_mean(l1) + tf.reduce_mean(l1_priority)))
             else:
-                self.loss = tf.reduce_mean(mel_loss * expanded_loss_coeff) + \
-                            tf.reduce_mean(l1 * expanded_loss_coeff) + self.loss_attention
+                if hp.attention_type in ['bah_mon', 'luong_mon']:
+                    self.loss = tf.reduce_mean(mel_loss * expanded_loss_coeff) + \
+                                tf.reduce_mean(l1 * expanded_loss_coeff) + self.loss_attention
+                else:
+                    self.loss = tf.reduce_mean(mel_loss * expanded_loss_coeff) + \
+                                tf.reduce_mean(l1 * expanded_loss_coeff)
                 self.linear_loss = tf.reduce_mean(l1)
 
             self.mel_loss = tf.reduce_mean(mel_loss)
-            self.loss_without_coeff = self.mel_loss + self.linear_loss + self.loss_attention
+            self.loss_without_coeff = self.mel_loss + self.linear_loss
 
     def add_optimizer(self, global_step):
         '''Adds optimizer. Sets "gradients" and "optimize" fields. add_loss must have been called.
@@ -357,3 +339,28 @@ class Tacotron():
             self.manual_alignments: np.zeros([1, 1, 1]),
         }
         return feed_dict
+
+
+def create_attention_mechanism(hp, encoder_outputs):
+    if hp.attention_type == 'bah_mon':
+        attention_mechanism = BahdanauMonotonicAttention(hp.attention_size, encoder_outputs)
+    elif hp.attention_type == 'bah_norm':
+        attention_mechanism = BahdanauAttention(hp.attention_size, encoder_outputs, normalize=True)
+    elif hp.attention_type == 'bah':
+        attention_mechanism = BahdanauAttention(hp.attention_size, encoder_outputs)
+    elif hp.attention_type == 'luong_scaled':
+        attention_mechanism = LuongAttention(hp.attention_size, encoder_outputs, scale=True)
+    elif hp.attention_type == 'luong':
+        attention_mechanism = LuongAttention(hp.attention_size, encoder_outputs)
+    elif hp.attention_type == 'luong_mon':
+        attention_mechanism = LuongMonotonicAttention(hp.attention_size, encoder_outputs)
+    elif hp.attention_type == "ls":
+        attention_mechanism = LocationSensitiveAttention(hp.attention_depth, encoder_outputs)
+    # elif hp.attention_type.startswith('ntm2'):
+    #     shift_width = int(hp.attention_type.split('-')[-1])
+    #     attention_mechanism = NTMAttention2(
+    #         hp.attention_size, encoder_outputs, shift_width=shift_width)
+    else:
+        raise Exception(" [!] Unkown attention type: {}".format(hp.attention_type))
+
+    return attention_mechanism

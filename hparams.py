@@ -49,7 +49,7 @@ basic_params.update({
     'enc_proj_width': 3,
 
     # Attention
-    'attention_type': 'bah_mon',  # ntm2-5
+    'attention_type': 'luong_mon',  # ntm2-5
     'attention_size': f(256),
     'attention_state_size': f(256),
 
@@ -98,9 +98,9 @@ elif True:  # Single Speaker
     basic_params.update({
         'dropout_prob': 0.5,
 
-        'attention_size': f(128),
+        'attention_size': f(256),
 
-        'post_bank_channel_size': f(128),
+        'post_bank_channel_size': f(256),
         # 'post_rnn_size': f(128),
 
         'reduction_factor': 5,  # chhanged from 4
@@ -120,13 +120,13 @@ elif False:  # Single Speaker with generalization
 
 basic_params.update({
     # Training
-    'batch_size': 32,
+    'batch_size': 10,
     'adam_beta1': 0.9,
     'adam_beta2': 0.999,
     'use_fixed_test_inputs': False,
 
     'initial_learning_rate': 0.001,
-    'decay_learning_rate_mode': 0,  # True in deepvoice2 paper
+    'decay_learning_rate_mode': 1,  # True in deepvoice2 paper
     'initial_data_greedy': True,
     'initial_phase_step': 8000,
     'main_data_greedy_factor': 0,
@@ -151,7 +151,7 @@ basic_params.update({
 # Tacotron2 Hyperparameter
 basic_params.update({
     'embedding_dim': 512,
-    'encoder_lstm_units': 256,     # For each direction
+    'encoder_lstm_units': 256,  # For each direction
     'attention_depth': 128,
     'decoder_lstm_units': 1024,
     'encoder_conv_layers': 3,

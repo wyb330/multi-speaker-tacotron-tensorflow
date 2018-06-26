@@ -127,32 +127,3 @@ def conv1d(inputs, kernel_size, channels, activation, is_training, scope):
         return tf.layers.batch_normalization(conv1d_output, training=is_training)
 
 
-def conv_and_lstm(inputs, input_lengths, conv_layers, conv_width, conv_channels, lstm_units,
-                  is_training, scope):
-    # Convolutional layers
-    with tf.variable_scope(scope):
-        x = inputs
-        for i in range(conv_layers):
-            activation = tf.nn.relu if i < conv_layers - 1 else None
-            x = conv1d(x, conv_width, conv_channels, activation, is_training, 'conv_%d' % i)
-
-        # 2-layer bidirectional LSTM:
-        outputs, states = tf.nn.bidirectional_dynamic_rnn(
-            LSTMBlockCell(lstm_units),
-            LSTMBlockCell(lstm_units),
-            x,
-            sequence_length=input_lengths,
-            dtype=tf.float32,
-            scope='encoder_lstm')
-
-        # Concatentate forward and backwards:
-        return tf.concat(outputs, axis=2)
-
-
-def postnet(inputs, layers, conv_width, channels, is_training):
-    x = inputs
-    with tf.variable_scope('decoder_postnet'):
-        for i in range(layers):
-            activation = tf.nn.tanh if i < layers - 1 else None
-            x = conv1d(x, conv_width, channels, activation, is_training, 'postnet_conv_%d' % i)
-    return tf.layers.dense(x, inputs.shape[2])  # Project to input shape

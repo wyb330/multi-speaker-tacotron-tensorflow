@@ -7,7 +7,7 @@ from text.symbols import symbols
 from utils.infolog import log
 from .attention import LocationSensitiveAttention
 from .helpers import TacoTestHelper, TacoTrainingHelper
-from .modules import conv_and_lstm, postnet
+from .modules2 import conv_and_lstm, postnet
 from .rnn_wrappers2 import DecoderPrenetWrapper, ConcatOutputAndAttentionWrapper
 import numpy as np
 
